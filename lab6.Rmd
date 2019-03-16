@@ -1,0 +1,253 @@
+---
+title: 'STAT 158 Lab: Two-Factor Analysis'
+date: 'March 11, 2019'
+output:
+  html_document:
+    number_sections: true
+editor_options: 
+  chunk_output_type: console
+---
+
+# Introduction
+
+In this lab, we will gain experience conducting two-factor analyses in `R`. Over the course of our analysis, we will practice working with factor variables, creating interaction plots, conducting hypothesis tests, testing contrasts, and assessing assumptions. We will be working with data inspired by an experiment conducted by Aronow et al. (2018), which can be obtained from bCourses.
+
+Note that if you wish to compile the document as you go, you'll need to remove the argument `eval = FALSE` from the chunks as you complete them.
+
+# Loading the Data
+
+The dataset is formatted as a CSV file. Download the dataset to your computer and load it into `R` in the following chunk.
+
+```{r}
+# load the data
+hal_dat = read.csv("~/Downloads/halloween.csv")
+```
+
+# Formatting the Data
+
+Let's take a closer look at the structure of the data. Here, we'll use the `glimpse` function, which is part of the `dplyr` package. Run the below code to get an overview of the data.
+
+```{r message = FALSE, warning = FALSE}
+# load dplyr package
+library(dplyr)
+# get an overview of the data using the glimpse function
+glimpse(hal_dat)
+```
+
+**Q:** How many observations are in our dataset?  
+**A:** 1002
+
+**Q:** Which variables indicate the treatment conditions?  
+**A:** The face variable indicates the condition
+
+**Q:** Which variable indicates the response?  
+**A:** Candies
+
+**Q:** What type of objects are the elements in the response column of the dataframe?  
+**A:** Numeric
+
+**Q:** What type of objects are the elements in the treatment columns of the dataframe?  
+**A:** Numeric
+
+**Q:** Why is it a problem that the elements in the treatment columns of the dataframe are of this type?  
+**A:** We should probably make it a factor, also we don't know which number refers to which face.
+
+Before we proceed, we need to convert our treatment variables into factors. There are two ways that we can do this. To convert the values into factors without changing the names of the levels, we can use the `as.factor` command. Convert our treatment values into factors using this command in the chunk below.
+
+```{r}
+# convert each treatment column into type factor using the as.factor command
+hal_dat$face = factor(hal_dat$face)
+# check to make sure the conversion was successful
+head(hal_dat$face)
+```
+
+Now that we've converted our treatment columns into factors, we can view the unique levels of the factor using the `levels` command. Run this command on both treatment indicator columns of the dataframe to see how many levels are in each factor.
+
+```{r}
+# check the levels in each treatment factor
+levels(hal_dat$face)
+```
+
+The other way that we can convert our treatment variables into factors is by using the `factor` command. This gives us the option of using more descriptive names for each level of our factors. In our case, for example, level 1 of `face` corresponds to Clinton, level 2 of `face` corresponds to Obama, and level 3 of `face` corresponds to Romney. Similarly, level 0 of `primed` corresponds to no priming, and level 1 of `primed` corresponds to priming. Use the `factor` command to create more informative factor labelings of our conditions in the chunk below.
+
+```{r}
+# convert each treatment column into type factor with more informative 
+# labelings using the factor command
+hal_dat$treat = factor(hal_dat$face, labels = c("Clinton", "Obama", "Romney"))
+# check to make sure the conversation was successful
+hal_dat$priming = factor(hal_dat$primed, labels = c("Unprimed", "Primed"))
+```
+
+# Informal Analysis
+
+Having addressed the technical issues with the data, we now conduct informal analyses to familiarize ourselves with the data. First, we need to know how many observations are in each condition to know whether this is a balanced design or not. Check that below.
+
+```{r}
+# check how many observations are in each condition
+table(hal_dat$treat)
+```
+
+Next, we should get a sense of how the responses are distributed in each condition. Becuase there are many observations in each condition, and because our responses are integer, we can plot a boxplot of responses in each condition, plot the points in each condition with jittering, or plot both.
+
+```{r message = FALSE, warning = FALSE}
+# plot responses in each condition using a boxplot, scatterplot, or both
+boxplot(hal_dat$candies ~ hal_dat$treat)
+```
+
+We can get a numbers-based perspective of the data by summarizing each condition. `dplyr` is useful for this; try using `group_by` and `summarise` to get the sample mean and sample standard deviation of each condition.
+
+```{r}
+# obtain mean and standard deviation of each condition
+
+```
+
+**Q:** Comment on the plots and summary statistics created above. What trends can you see?  
+**A:** 
+
+One last thing we're going to do is an informal analysis of interaction between the factors. One way we can do this is by using the `interaction.plot` command, which is in the `stats` package. This should already be loaded when you start `R`. Another way to do this is to use the table you created above with `group_by` and `summarise` and plot the points with `ggplot2`. Create an interaction plot in the chunk below using one or both of these methods.
+
+```{r}
+# create interaction plot using interaction.plot and/or ggplot2
+library(stats)
+with(hal_dat, {
+  interaction.plot(treat, priming, candies, fixed = TRUE)
+})
+```
+
+**Q:** Comment on your interaction plot. Does it seem like there might be interaction?  
+**A:** 
+
+# Formal Analysis
+
+In this section, we conduct a formal analysis of the data using ANOVA. Recall that our model is given by
+\[
+y_{ijk} = \mu + \alpha_i + \beta_j + \gamma_{ij} + \epsilon_{ijk}\hspace{15pt}i = 1, \ldots, I; j = 1, \ldots, J; k = 1, \ldots, n
+\]
+where $\mathbb{E}[\epsilon_{ijk}] = 0\, \, \forall i, j, k$ and $\text{Var}(\epsilon_{ijk}) = \sigma^2\, \, \forall i, j, k$. In this class, we address over-parameterization of our model by imposing zero-sum constraints, which, in the balanced case, entail
+\[
+\sum_{i = 1}^{I}\alpha_i = 0,\hspace{5pt}\sum_{j = 1}^{J}\beta_j = 0,\hspace{5pt}\sum_{i = 1}^{I}\gamma_{ij} = 0\, \, \forall j,\hspace{5pt}\sum_{j = 1}^{J}\gamma_{ij} = 0\, \, \forall i.
+\]
+Notably, `R` by default uses the treatment constraint, not the zero-sum constraint. We can verify this by running the below line of code.
+
+```{r}
+# check current constraint setting in R
+options("contrasts")
+```
+
+The first term in the output, `contr.treatment`, tells us that `R` is using the treatment constraint for unordered factors. The second term in the output, `contr.poly`, tells us that `R` is using the polynomial constraint for ordered factors. (This is not something we need to worry about.) To make `R` use the zero-sum constraint, run the below line of code.
+
+```{r}
+# change constraint setting from treatment constraint to zero-sum constraint
+options(contrasts = c("contr.sum", "contr.poly"))
+```
+
+## ANOVA
+
+Now that we've set `R` to use the zero-sum constraint, we can run an ANOVA on our data. To do so, we first need to specify our null and alternative hypotheses. We need to be explicit about these whenever we test hypotheses.
+
+**Q:** What null hypotheses might we want to test using ANOVA?  
+**A:** 
+
+**Q:** What alternative hypothesis are you using for each of the null hypotheses above?  
+**A:** 
+
+Now that we've specified our hypotheses, we're ready to conduct our analysis. Use the `aov` command to run an ANOVA on the data in the chunk below. Include an interaction term.
+
+```{r}
+# calculate an ANOVA table on the dataset
+hal_model = aov(candies ~ treat + priming +treat*priming, data = hal_dat)
+summary(hal_model)
+```
+
+Before we check the output of our ANOVA, we should check the model assumptions to make sure our model is appropriate for the data. One diagnostic plot we can make is a fitted vs. residual plot. Using the ANOVA object you created in the previous chunk, create a fitted vs. residual plot in the chunk below.
+
+```{r}
+# make a fitted vs. residual plot using the ANOVA object created above
+plot(hal_model, 1)
+```
+
+**Q:** Does there appear to be heteroskedasticity in the fitted vs. residual plot?  
+**A:** Nope
+
+We can create more diagnostic plots in the chunk below.
+
+```{r}
+# optional: create more diagnostic plots
+
+```
+
+Having checked our model assumptions, we're now ready to view the output of our ANOVA. Print a summary of the ANOVA in the chunk below.
+
+```{r}
+# print a summary of the ANOVA
+
+```
+
+**Q:** What can we conclude about each of the null hypotheses above?  
+**A:** 
+
+We can also view the individual effect estimates $\alpha_i$, $\beta_j$, and $\gamma_{ij}$ by calling the `model.tables` command on our ANOVA object. Do so in the chunk below, and check your understanding by answering the brief questions after the chunk.
+
+```{r}
+# get the effect estimates using the model.tables command
+model.tables(hal_model)
+```
+
+**Q:** What was the main effect of having Obama's face shown? What is this effect relative to?  
+**A:** 
+
+**Q:** Pick one of the interaction effect estimates and interpret it in words. What does this number represent?  
+**A:** 
+
+## Contrasts
+
+Recall that the study was motivated by the hypothesis that, because Obama spearheaded a prominent healthy lifestyle initiative, children might make different lifestyle choices upon seeing an image of her. While the ANOVA we conducted above was informative, it doesn't really address this specific hypothesis. (Why not?) To determine whether the evidence from this experiment supports such a hypothesis, we need to do a contrast.
+
+**Q:** If $(\mu_{C0}, \mu_{C1}, \mu_{O0}, \mu_{O1}, \mu_{R0}, \mu_{R1})$ represent the group means of Clinton without priming, Clinton with priming, Obama without priming, Obama with priming, Romney without priming, and Romney with priming, what is a contrast vector that would enable us to test our above hypothesis about the effect of seeing Obama's image on children's lifestyle choices?  
+**A:** 
+
+**Q:** What is the specific null hypothesis associated with this contrast vector? State it in terms of both the group means and the effects.  
+**A:** 
+
+**Q:** What is the alternative hypothesis?   
+**A:** 
+
+To test this null hypothesis, we use a $t$-test. First, we need to compute the difference in means weighted by the contrast vector; this is the numerator of our test statistic. Compute this value in the chunk below.
+
+```{r}
+# compute the numerator of our t-statistic
+
+```
+
+Now, we need to compute the denominator of our test statistic. We can do this using our contrast vector and the ANOVA table from above, but we can also use the `se.contrast` function in `R` to assist us. This function takes two arguments, primarily. First, it takes the ANOVA model that was fit to the data. Second, it takes an $(IJn) \times 1$ matrix of weights corresponding to the weight placed on each individual observation as defined by our contrast vector. Since we weight each observation in a given group equally, the weight placed on each individual observation is the weight placed on the group mean by the contrast vector divided by the number of observations in the group. Calculate the denominator of our test statistic using `se.contrast`, then check your answer by computing the denominator manually in `R`.
+
+```{r}
+# get number of observations in each political figure level
+
+# define the vector for se.contrast
+
+# get standard error of contrast
+
+# check that this is equivalent to what you would have gotten if you had calculated
+# the standard error by hand
+
+```
+
+Now, we can put our test statistic together and compare it to the appropriate $t$-distribution. Recall that the degrees of freedom of the $t$-distribution is the degrees of freedom associated with $\text{MS}_{\text{resid}}$. Perform the $t$-test in the chunk below.
+
+```{r}
+# create t-statistic
+
+# check t-statistic relative to appropriate t-distribution
+
+```
+
+**Q:** What do you conclude from this test?  
+**A:** 
+
+# Disclaimer
+
+The data used in this lab are fictional and only loosely based on data generated from an experiment by Aronow et al. (2018); none of the results here should be taken as true.
+
+# References
+Aronow PM, Karlan D, Pinson LE (2018). "The effect of images of Michelle Obama's face on trick-or-treaters' dietary choices: A randomized control trial." _PLoS ONE_ 13(1): e0189693.
